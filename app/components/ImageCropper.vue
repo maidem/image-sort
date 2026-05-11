@@ -15,8 +15,6 @@ const emit = defineEmits<{
 }>();
 
 const cropper = ref<InstanceType<typeof Cropper>>();
-const scale = ref({ x: 1, y: 1 });
-const rotate = ref(0);
 
 function crop() {
   if (!cropper.value) return;
@@ -29,31 +27,87 @@ function crop() {
   });
 }
 
-function reset() {
-  rotate.value = 0;
-  scale.value = { x: 1, y: 1 };
-}
-
 function close() {
   emit("update:modelValue", false);
-  reset();
-}
-
-function flipX() {
-  scale.value.x = -scale.value.x;
-}
-
-function flipY() {
-  scale.value.y = -scale.value.y;
 }
 
 function rotateLeft() {
-  rotate.value = (rotate.value - 90) % 360;
+  cropper.value?.rotate(-90);
 }
 
 function rotateRight() {
-  rotate.value = (rotate.value + 90) % 360;
+  cropper.value?.rotate(90);
 }
+
+function flipX() {
+  cropper.value?.flip(true, false);
+}
+
+function flipY() {
+  cropper.value?.flip(false, true);
+}
+
+function zoomIn() {
+  cropper.value?.zoom(1.25);
+}
+
+function zoomOut() {
+  cropper.value?.zoom(0.8);
+}
+
+function reset() {
+  cropper.value?.reset();
+}
+</script>
+
+<template>
+  <Teleport to="body">
+    <div
+      v-if="modelValue"
+      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style="max-height: 90vh;">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-4 border-b border-ink-200 flex-shrink-0">
+          <h2 class="text-lg font-semibold">{{ title }}</h2>
+          <button class="text-ink-400 hover:text-ink-900 text-xl" @click="close">✕</button>
+        </div>
+
+        <!-- Cropper area -->
+        <div class="bg-ink-900 flex-shrink-0" style="height: 420px;">
+          <Cropper
+            v-if="imageUrl"
+            ref="cropper"
+            :src="imageUrl"
+            :stencil-props="{ grid: true }"
+            class="w-full h-full"
+          />
+        </div>
+
+        <!-- Controls -->
+        <div class="p-4 border-t border-ink-200 flex-shrink-0 space-y-3">
+          <!-- Zoom + Rotate -->
+          <div class="flex flex-wrap gap-2 justify-center">
+            <button type="button" class="btn-ghost text-sm" @click="zoomOut">🔍− Kleiner</button>
+            <button type="button" class="btn-ghost text-sm" @click="zoomIn">🔍+ Größer</button>
+            <button type="button" class="btn-ghost text-sm" @click="rotateLeft">↶ Links</button>
+            <button type="button" class="btn-ghost text-sm" @click="rotateRight">↷ Rechts</button>
+            <button type="button" class="btn-ghost text-sm" @click="flipX">↔ Spiegeln</button>
+            <button type="button" class="btn-ghost text-sm" @click="flipY">↕ Kippen</button>
+            <button type="button" class="btn-ghost text-sm" @click="reset">↺ Reset</button>
+          </div>
+
+          <!-- Save / Cancel -->
+          <div class="flex gap-2">
+            <button type="button" class="btn-lime flex-1" @click="crop">Zuschnitt speichern</button>
+            <button type="button" class="btn-ghost flex-1" @click="close">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
 </script>
 
 <template>
