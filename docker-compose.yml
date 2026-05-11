@@ -1,16 +1,17 @@
 services:
   app:
-    image: ghcr.io/maidem/trainerbelegungsplan:latest
-    container_name: trainerbelegungsplan
+    image: ghcr.io/maidem/image-sort:latest
+    container_name: image-sort
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_PATH=/data/app.db
+      - UPLOAD_PATH=/data/uploads
+      - ADMIN_EMAIL=${ADMIN_EMAIL:?ADMIN_EMAIL muss gesetzt sein}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD muss gesetzt sein}
-      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET muss gesetzt sein
-        (openssl rand -hex 32)}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET muss gesetzt sein}
     volumes:
       - app_data:/data
 

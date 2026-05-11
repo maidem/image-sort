@@ -1,9 +1,6 @@
 import { safeEqual, setAdminSession } from "../../utils/auth";
-import { rateLimit } from "../../utils/rate-limit";
 
 export default defineEventHandler(async (event) => {
-  rateLimit(event, "admin-login", 8, 60_000);
-
   const cfg = useRuntimeConfig();
   if (!cfg.adminPassword || !cfg.sessionSecret) {
     throw createError({

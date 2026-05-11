@@ -1,204 +1,107 @@
 <script setup lang="ts">
-const { data: plans, refresh } = await useFetch<any[]>("/api/plans");
-const plansRef = ref(plans || []);
+import type { Category, ImagePair } from "~/../../types/models";
 
-// Auto-sync with live updates and fallback refreshes
-useSyncData(plansRef, "plans", "id", refresh);
+const { data: categories } = await useFetch<(Category & { image_count: number })[]>("/api/categories");
+const { data: allPairs } = await useFetch<ImagePair[]>("/api/image-pairs");
 
-const { state: auth } = useAuth();
+const selectedCategory = ref<number | null>(null);
 
-const showCreate = ref(false);
-const now = new Date();
-const form = reactive({
-  year: now.getFullYear(),
-  month: now.getMonth() + 1,
-  title: "",
+const visiblePairs = computed(() => {
+  if (!allPairs.value) return [];
+  const pairs = selectedCategory.value === null
+    ? allPairs.value
+    : allPairs.value.filter((p) => p.category_id === selectedCategory.value);
+  return pairs.filter((p) => p.painted_filename);
 });
-const error = ref("");
-const deleteModal = ref<any>(null);
 
-const monthNames = [
-  "Januar",
-  "Februar",
-  "März",
-  "April",
-  "Mai",
-  "Juni",
-  "Juli",
-  "August",
-  "September",
-  "Oktober",
-  "November",
-  "Dezember",
-];
+// Lightbox
+const lightboxPair = ref<ImagePair | null>(null);
 
-async function createPlan() {
-  error.value = "";
-  try {
-    await $fetch("/api/plans", { method: "POST", body: { ...form } });
-    showCreate.value = false;
-    form.title = "";
-    // New plan will be added via WebSocket event
-  } catch (e: any) {
-    error.value = e?.statusMessage || "Fehler beim Anlegen";
-  }
+function openLightbox(pair: ImagePair) {
+  lightboxPair.value = pair;
 }
 
-async function deletePlan() {
-  try {
-    const plan = deleteModal.value;
-    await $fetch(`/api/plans/${plan.id}`, { method: "DELETE" });
-    deleteModal.value = null;
-    // Deletion will come via WebSocket event
-  } catch (e: any) {
-    error.value = e?.statusMessage || "Fehler beim Löschen";
-  }
+function closeLightbox() {
+  lightboxPair.value = null;
 }
+
+onMounted(() => {
+  const handler = (e: KeyboardEvent) => {
+    if (e.key === "Escape") closeLightbox();
+  };
+  window.addEventListener("keydown", handler);
+  onUnmounted(() => window.removeEventListener("keydown", handler));
+});
 </script>
 
 <template>
-  <section class="space-y-8">
-    <div class="flex items-end justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-ink-900">
-          Belegungspläne
-        </h1>
-        <p class="text-ink-500 mt-1">
-          <template v-if="auth.isLoggedIn">
-            Übersicht über alle Monatspläne. Klicke einen Plan an, um Slots zu
-            verwalten.
-          </template>
-          <template v-else>
-            Übersicht über alle Monatspläne. Klicke einen Plan an.
-          </template>
-        </p>
-      </div>
+  <div class="space-y-6">
+    <!-- Category filter -->
+    <div v-if="categories?.length" class="flex flex-wrap gap-2">
       <button
-        v-if="auth.isAdmin"
-        class="btn-lime w-full sm:w-auto"
-        @click="showCreate = true"
-      >
-        + Neuer Plan
-      </button>
+        class="btn"
+        :class="selectedCategory === null ? 'btn-primary' : 'btn-ghost'"
+        @click="selectedCategory = null"
+      >Alle</button>
+      <button
+        v-for="c in categories"
+        :key="c.id"
+        class="btn"
+        :class="selectedCategory === c.id ? 'btn-primary' : 'btn-ghost'"
+        @click="selectedCategory = c.id"
+      >{{ c.name }}</button>
     </div>
 
+    <!-- Gallery grid -->
     <div
-      v-if="plansRef?.length"
-      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      v-if="visiblePairs.length"
+      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
     >
       <div
-        v-for="p in plansRef"
-        :key="p.id"
-        class="card hover:border-ink-900 transition-all group"
+        v-for="pair in visiblePairs"
+        :key="pair.id"
+        class="group cursor-pointer"
+        @click="openLightbox(pair)"
       >
-        <NuxtLink :to="`/plans/${p.id}`" class="block">
-          <div class="flex items-start justify-between">
-            <div>
-              <div class="text-xs uppercase tracking-wider text-ink-500">
-                {{ p.year }}
-              </div>
-              <div class="text-2xl font-semibold mt-0.5">
-                {{ monthNames[p.month - 1] }}
-              </div>
-              <div v-if="p.title" class="text-sm text-ink-600 mt-1 truncate">
-                {{ p.title }}
-              </div>
-            </div>
-          </div>
-          <div class="divider my-4"></div>
-          <div class="flex items-center justify-between text-xs text-ink-500">
-            <span>{{ p.slot_count }} Slots</span>
-            <span class="text-ink-400">öffnen →</span>
-          </div>
-        </NuxtLink>
-        <div
-          v-if="auth.isAdmin"
-          class="flex gap-2 mt-4 pt-3 border-t border-ink-100"
-        >
-          <button
-            class="btn-danger text-xs flex-1"
-            @click.stop="deleteModal = p"
-          >
-            ✕ Löschen
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-else class="card text-center py-16">
-      <div class="text-ink-500 mb-4">Noch keine Pläne angelegt.</div>
-      <button v-if="auth.isAdmin" class="btn-lime" @click="showCreate = true">
-        Ersten Plan anlegen
-      </button>
-      <NuxtLink v-else to="/login" class="btn-ghost text-xs"
-        >Als Admin anmelden</NuxtLink
-      >
-    </div>
-
-    <!-- Modal -->
-    <div
-      v-if="showCreate"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-ink-950/40 backdrop-blur-sm"
-      @click.self="showCreate = false"
-    >
-      <div class="card w-full max-w-md mx-4 space-y-4">
-        <h2 class="text-lg font-semibold">Neuen Plan anlegen</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="label">Monat</label>
-            <select v-model.number="form.month" class="select">
-              <option v-for="(m, i) in monthNames" :key="i" :value="i + 1">
-                {{ m }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="label">Jahr</label>
-            <input v-model.number="form.year" type="number" class="input" />
-          </div>
-        </div>
-        <div>
-          <label class="label">Titel (optional)</label>
-          <input
-            v-model="form.title"
-            class="input"
-            placeholder="z. B. Frühjahrssaison"
+        <div class="aspect-square bg-ink-100 rounded-2xl overflow-hidden">
+          <img
+            :src="`/api/uploads/${pair.painted_filename}`"
+            :alt="pair.description || 'Gemälde'"
+            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
-        <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button class="btn-ghost" @click="showCreate = false">
-            Abbrechen
-          </button>
-          <button class="btn-lime" @click="createPlan">Anlegen</button>
+        <div class="mt-2 px-1">
+          <p v-if="pair.painted_at" class="text-xs text-ink-400">{{ pair.painted_at }}</p>
         </div>
       </div>
+    </div>
+    <div v-else class="py-16 text-center text-ink-400">
+      <p class="text-lg">Noch keine Bilder vorhanden.</p>
     </div>
 
-    <!-- Delete Modal -->
-    <div
-      v-if="deleteModal"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-ink-950/40 backdrop-blur-sm"
-      @click.self="deleteModal = null"
-    >
-      <div class="card w-full max-w-sm mx-4 space-y-4">
-        <h2 class="text-lg font-semibold text-red-600">Plan löschen?</h2>
-        <p class="text-sm text-ink-600">
-          Der Plan "{{ monthNames[deleteModal.month - 1] }}
-          {{ deleteModal.year }}" wird mit
-          <strong>{{ deleteModal.slot_count }} Slots</strong> gelöscht.
-        </p>
-        <p class="text-xs text-ink-500">
-          Diese Aktion kann nicht rückgängig gemacht werden.
-        </p>
-        <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button class="btn-ghost" @click="deleteModal = null">
-            Abbrechen
-          </button>
-          <button class="btn-danger" @click="deletePlan">Löschen</button>
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div
+        v-if="lightboxPair"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+        @click.self="closeLightbox"
+      >
+        <div class="relative w-full max-w-3xl">
+          <button
+            class="absolute -top-10 right-0 text-white/70 hover:text-white text-sm"
+            @click="closeLightbox"
+          >✕ Schließen</button>
+          <img
+            :src="`/api/uploads/${lightboxPair.painted_filename}`"
+            :alt="lightboxPair.description || 'Gemälde'"
+            class="w-full rounded-2xl object-contain max-h-[80vh]"
+          />
+          <div v-if="lightboxPair.description || lightboxPair.painted_at" class="mt-4 text-white space-y-1">
+            <p v-if="lightboxPair.description" class="text-base">{{ lightboxPair.description }}</p>
+            <p v-if="lightboxPair.painted_at" class="text-sm text-white/60">Gemalt am {{ lightboxPair.painted_at }}</p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </Teleport>
+  </div>
 </template>
