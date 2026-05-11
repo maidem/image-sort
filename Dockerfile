@@ -4,7 +4,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Native deps for better-sqlite3
+# Native deps for better-sqlite3 (used for local dev, installed but not used in production)
 RUN apk add --no-cache python3 make g++ libc6-compat
 
 COPY package.json package-lock.json* ./
@@ -17,26 +17,21 @@ RUN npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat \
-  && addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app
 
 ENV NODE_ENV=production \
     NITRO_PORT=3000 \
-    NITRO_HOST=0.0.0.0 \
-    DATABASE_PATH=/data/app.db
+    NITRO_HOST=0.0.0.0
 
 COPY --from=build /app/.output ./.output
-# better-sqlite3 native module ships in node_modules of the output? No — Nitro bundles JS only.
-# We copy node_modules for the native binding to be present.
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
 
-RUN mkdir -p /data
+RUN mkdir -p /data/uploads && chown -R app:app /data
 
-VOLUME ["/data"]
+VOLUME ["/data/uploads"]
 EXPOSE 3000
+USER app
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD wget -qO- http://127.0.0.1:3000/api/trainers > /dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD wget -qO- http://127.0.0.1:3000/api/categories > /dev/null || exit 1
 
 CMD ["node", ".output/server/index.mjs"]

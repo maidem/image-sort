@@ -22,8 +22,9 @@
     "@nuxtjs/color-mode": "^4.0.0",
     "@vueuse/core": "^14.3.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^12.9.0",
     "nuxt": "^4.0.0",
+    "postgres": "^3.4.9",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "sortablejs": "^1.15.7",
@@ -35,7 +36,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.11",
+    "@types/better-sqlite3": "^7.6.13",
     "tailwindcss": "^4.0.0"
   }
 }

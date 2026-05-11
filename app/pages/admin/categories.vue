@@ -4,7 +4,8 @@ import Sortable from "sortablejs";
 
 definePageMeta({ middleware: "admin" });
 
-const { data: categories, refresh } = await useFetch<Category[]>("/api/categories");
+const { data: categories, refresh } =
+  await useFetch<Category[]>("/api/categories");
 
 const showForm = ref(false);
 const editTarget = ref<Category | null>(null);
@@ -24,18 +25,18 @@ onMounted(() => {
       handle: ".drag-handle",
       onEnd: async (evt) => {
         if (!categories.value) return;
-        
+
         // Reorder array based on drag result
         const movedItem = categories.value[evt.oldIndex!];
         categories.value.splice(evt.oldIndex!, 1);
         categories.value.splice(evt.newIndex!, 0, movedItem);
-        
+
         // Update sort_order based on new positions
         const reorderData = categories.value.map((cat, idx) => ({
           id: cat.id,
           sort_order: idx,
         }));
-        
+
         // Send to server
         try {
           await $fetch("/api/categories/reorder", {
@@ -43,7 +44,8 @@ onMounted(() => {
             body: reorderData,
           });
         } catch (e: any) {
-          error.value = e?.data?.statusMessage || "Fehler beim Speichern der Reihenfolge";
+          error.value =
+            e?.data?.statusMessage || "Fehler beim Speichern der Reihenfolge";
           await refresh(); // Refresh to revert
         }
       },
@@ -68,19 +70,28 @@ function openEdit(cat: Category) {
 }
 
 async function save() {
-  if (!name.value.trim()) { error.value = "Name erforderlich"; return; }
+  if (!name.value.trim()) {
+    error.value = "Name erforderlich";
+    return;
+  }
   saving.value = true;
   error.value = "";
   try {
     if (editTarget.value) {
       await $fetch(`/api/categories/${editTarget.value.id}`, {
         method: "PATCH",
-        body: { name: name.value.trim(), description: description.value.trim() || null },
+        body: {
+          name: name.value.trim(),
+          description: description.value.trim() || null,
+        },
       });
     } else {
       await $fetch("/api/categories", {
         method: "POST",
-        body: { name: name.value.trim(), description: description.value.trim() || null },
+        body: {
+          name: name.value.trim(),
+          description: description.value.trim() || null,
+        },
       });
     }
     showForm.value = false;
@@ -93,7 +104,8 @@ async function save() {
 }
 
 async function remove(cat: Category) {
-  if (!confirm(`Kategorie "${cat.name}" und alle Bilder darin löschen?`)) return;
+  if (!confirm(`Kategorie "${cat.name}" und alle Bilder darin löschen?`))
+    return;
   await $fetch(`/api/categories/${cat.id}`, { method: "DELETE" });
   await refresh();
 }
@@ -108,7 +120,9 @@ async function remove(cat: Category) {
 
     <!-- Form -->
     <div v-if="showForm" class="card space-y-4">
-      <h2 class="font-medium">{{ editTarget ? "Kategorie bearbeiten" : "Neue Kategorie" }}</h2>
+      <h2 class="font-medium">
+        {{ editTarget ? "Kategorie bearbeiten" : "Neue Kategorie" }}
+      </h2>
       <div>
         <label class="label">Name</label>
         <input v-model="name" class="input" type="text" autofocus />
@@ -131,24 +145,42 @@ async function remove(cat: Category) {
       <div
         v-for="cat in categories"
         :key="cat.id"
-        class="card flex items-center justify-between gap-4 hover:shadow-md transition"
+        class="card flex items-center gap-3 hover:shadow-md transition p-3 sm:p-5"
       >
         <!-- Drag Handle -->
-        <div class="drag-handle flex items-center justify-center px-3 py-2 cursor-grab active:cursor-grabbing text-ink-300 hover:text-ink-600 transition flex-shrink-0">
+        <div
+          class="drag-handle flex items-center justify-center px-2 py-2 cursor-grab active:cursor-grabbing text-ink-300 hover:text-ink-600 transition flex-shrink-0"
+        >
           <span class="text-lg leading-none">⋮⋮</span>
         </div>
-        
+
         <!-- Content -->
-        <div class="flex-1">
-          <p class="font-medium">{{ cat.name }}</p>
-          <p v-if="cat.description" class="text-sm text-ink-500">{{ cat.description }}</p>
-          <p class="text-xs text-ink-400 mt-0.5">{{ (cat as any).image_count }} Bildpaare</p>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium truncate">{{ cat.name }}</p>
+          <p v-if="cat.description" class="text-sm text-ink-500 truncate">
+            {{ cat.description }}
+          </p>
+          <p class="text-xs text-ink-400 mt-0.5">
+            {{ (cat as any).image_count }} Bildpaare
+          </p>
         </div>
-        
+
         <!-- Actions -->
-        <div class="flex gap-2 shrink-0">
-          <button class="btn-ghost !px-3 !py-1.5 text-xs" @click="openEdit(cat)">Bearbeiten</button>
-          <button class="btn-danger !px-3 !py-1.5 text-xs" @click="remove(cat)">Löschen</button>
+        <div class="flex gap-1.5 shrink-0">
+          <button
+            class="btn-ghost !px-2.5 !py-1.5 text-xs"
+            @click="openEdit(cat)"
+          >
+            <span class="hidden sm:inline">Bearbeiten</span>
+            <span class="sm:hidden">✏️</span>
+          </button>
+          <button
+            class="btn-danger !px-2.5 !py-1.5 text-xs"
+            @click="remove(cat)"
+          >
+            <span class="hidden sm:inline">Löschen</span>
+            <span class="sm:hidden">🗑️</span>
+          </button>
         </div>
       </div>
     </div>

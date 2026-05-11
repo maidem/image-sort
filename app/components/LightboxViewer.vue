@@ -46,6 +46,7 @@ function next() {
   }
 }
 
+// Mouse drag
 function onMouseDown(e: MouseEvent) {
   isDragging.value = true;
   dragStartX.value = e.clientX - dragX.value;
@@ -57,6 +58,25 @@ function onMouseMove(e: MouseEvent) {
 }
 
 function onMouseUp() {
+  isDragging.value = false;
+  if (Math.abs(dragX.value) > 50) {
+    dragX.value > 0 ? prev() : next();
+  }
+  dragX.value = 0;
+}
+
+// Touch swipe
+function onTouchStart(e: TouchEvent) {
+  isDragging.value = true;
+  dragStartX.value = e.touches[0].clientX - dragX.value;
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!isDragging.value) return;
+  dragX.value = e.touches[0].clientX - dragStartX.value;
+}
+
+function onTouchEnd() {
   isDragging.value = false;
   if (Math.abs(dragX.value) > 50) {
     dragX.value > 0 ? prev() : next();
@@ -78,7 +98,9 @@ useEventListener("keydown", (e: KeyboardEvent) => {
 });
 
 const canGoPrev = computed(() => currentIndex.value > 0);
-const canGoNext = computed(() => currentIndex.value < props.allPairs.length - 1);
+const canGoNext = computed(
+  () => currentIndex.value < props.allPairs.length - 1,
+);
 </script>
 
 <template>
@@ -90,20 +112,27 @@ const canGoNext = computed(() => currentIndex.value < props.allPairs.length - 1)
       @mousemove="onMouseMove"
       @mouseup="onMouseUp"
       @mouseleave="onMouseUp"
-      @wheel="onWheel"
+      @wheel.prevent="onWheel"
+      @touchstart.passive="onTouchStart"
+      @touchmove.passive="onTouchMove"
+      @touchend="onTouchEnd"
     >
       <!-- Close button -->
       <button
-        class="absolute top-4 right-4 text-white/60 hover:text-white text-2xl z-10 transition"
+        class="absolute top-3 right-3 text-white/60 hover:text-white text-2xl z-10 transition w-10 h-10 flex items-center justify-center"
         @click="close"
-      >✕</button>
+      >
+        ✕
+      </button>
 
       <!-- Previous button -->
       <button
         v-if="canGoPrev"
-        class="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-3xl z-10 transition"
+        class="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-4xl z-10 transition w-12 h-12 flex items-center justify-center"
         @click="prev"
-      >‹</button>
+      >
+        ‹
+      </button>
 
       <!-- Image container -->
       <div
@@ -113,7 +142,7 @@ const canGoNext = computed(() => currentIndex.value < props.allPairs.length - 1)
         <img
           :src="`/api/uploads/${pair.painted_filename}`"
           :alt="pair.description || 'Gemälde'"
-          class="object-contain max-h-[90vh] max-w-[90vw] select-none pointer-events-none"
+          class="object-contain max-h-[85vh] max-w-[92vw] select-none pointer-events-none"
           :style="{
             transform: `scale(${zoom}) translateX(${dragX}px) translate(${panX}px, ${panY}px)`,
             transition: isDragging ? 'none' : 'transform 0.2s',
@@ -124,23 +153,41 @@ const canGoNext = computed(() => currentIndex.value < props.allPairs.length - 1)
       <!-- Next button -->
       <button
         v-if="canGoNext"
-        class="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-3xl z-10 transition"
+        class="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-4xl z-10 transition w-12 h-12 flex items-center justify-center"
         @click="next"
-      >›</button>
+      >
+        ›
+      </button>
 
       <!-- Bottom info -->
-      <div class="absolute bottom-4 left-0 right-0 text-center text-white/70 space-y-1">
-        <p v-if="pair.description" class="text-lg">{{ pair.description }}</p>
-        <p v-if="pair.painted_at" class="text-sm">Gemalt am {{ pair.painted_at }}</p>
-        <p class="text-xs">{{ currentIndex + 1 }} / {{ allPairs.length }}</p>
+      <div
+        class="absolute bottom-4 left-0 right-0 text-center text-white/70 space-y-0.5 px-4"
+      >
+        <p v-if="pair.description" class="text-sm sm:text-base truncate">
+          {{ pair.description }}
+        </p>
+        <p v-if="pair.painted_at" class="text-xs text-white/50">
+          Gemalt am {{ pair.painted_at }}
+        </p>
+        <p class="text-xs text-white/40">
+          {{ currentIndex + 1 }} / {{ allPairs.length }}
+        </p>
       </div>
 
-      <!-- Controls info -->
-      <div class="absolute bottom-4 right-4 text-white/50 text-xs space-y-0.5">
-        <p>← → Pfeiltasten zum Navigieren</p>
-        <p>🖱 Mausrad zum Zoomen</p>
-        <p>🖱 Ziehen zum Navigieren</p>
-        <p>ESC zum Schließen</p>
+      <!-- Controls hint — desktop only -->
+      <div
+        class="absolute bottom-4 right-4 text-white/40 text-xs space-y-0.5 hidden sm:block"
+      >
+        <p>← → Pfeiltasten</p>
+        <p>🖱 Rad = Zoom</p>
+        <p>ESC = Schließen</p>
+      </div>
+
+      <!-- Mobile swipe hint -->
+      <div
+        class="absolute bottom-16 left-1/2 -translate-x-1/2 text-white/30 text-xs sm:hidden pointer-events-none"
+      >
+        Wischen zum Navigieren
       </div>
     </div>
   </Teleport>

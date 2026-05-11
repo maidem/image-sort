@@ -6,14 +6,13 @@ import { resolve } from "node:path";
 export default defineEventHandler(async (event) => {
   requireAdmin(event);
   const id = Number(getRouterParam(event, "id"));
-  const db = useDb();
+  const sql = useDb();
   const cfg = useRuntimeConfig();
   const uploadPath = resolve(cfg.uploadPath as string);
 
-  const pair = db
-    .prepare("SELECT original_filename, painted_filename FROM image_pairs WHERE id = ?")
-    .get(id) as { original_filename: string | null; painted_filename: string | null } | undefined;
-
+  const [pair] = await sql`
+    SELECT original_filename, painted_filename FROM image_pairs WHERE id = ${id}
+  `;
   if (!pair) throw createError({ statusCode: 404, statusMessage: "Nicht gefunden" });
 
   for (const fn of [pair.original_filename, pair.painted_filename]) {
@@ -23,6 +22,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  db.prepare("DELETE FROM image_pairs WHERE id = ?").run(id);
+  await sql`DELETE FROM image_pairs WHERE id = ${id}`;
   return { ok: true };
 });

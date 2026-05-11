@@ -20,6 +20,7 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // Local SQLite path (used when DATABASE_URL is not set)
     databasePath: process.env.DATABASE_PATH || "./data/app.db",
     uploadPath: process.env.UPLOAD_PATH || "./data/uploads",
     // Admin credentials (cleartext only in env, never persisted in repo).
@@ -28,7 +29,6 @@ export default defineNuxtConfig({
     adminPassword: process.env.ADMIN_PASSWORD || "",
     // Random secret for signing the admin session cookie.
     sessionSecret: process.env.SESSION_SECRET || "",
-    uploadPath: process.env.UPLOAD_PATH || "./data/uploads",
     public: {
       appName: "Image Sort",
     },

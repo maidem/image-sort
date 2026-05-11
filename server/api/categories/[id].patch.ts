@@ -9,8 +9,12 @@ export default defineEventHandler(async (event) => {
   if (!name) {
     throw createError({ statusCode: 400, statusMessage: "Name ist erforderlich" });
   }
-  const db = useDb();
-  db.prepare("UPDATE categories SET name = ?, description = ? WHERE id = ?")
-    .run(name, body?.description?.trim() || null, id);
-  return db.prepare("SELECT * FROM categories WHERE id = ?").get(id);
+  const sql = useDb();
+  const [row] = await sql`
+    UPDATE categories
+    SET name = ${name}, description = ${body?.description?.trim() || null}
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return row;
 });

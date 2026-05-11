@@ -44,20 +44,18 @@ export default defineEventHandler(async (event) => {
   const original_filename = saveFile("original");
   const painted_filename = saveFile("painted");
 
-  const db = useDb();
-  const result = db
-    .prepare(
-      `INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .run(category_id, original_filename, painted_filename, description, painted_at);
+  const sql = useDb();
+  const [pair] = await sql`
+    INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at)
+    VALUES (${category_id}, ${original_filename}, ${painted_filename}, ${description}, ${painted_at})
+    RETURNING id
+  `;
 
-  return db
-    .prepare(
-      `SELECT ip.*, c.name as category_name
-       FROM image_pairs ip
-       LEFT JOIN categories c ON c.id = ip.category_id
-       WHERE ip.id = ?`,
-    )
-    .get(result.lastInsertRowid);
+  const [result] = await sql`
+    SELECT ip.*, c.name AS category_name
+    FROM image_pairs ip
+    LEFT JOIN categories c ON c.id = ip.category_id
+    WHERE ip.id = ${pair.id}
+  `;
+  return result;
 });

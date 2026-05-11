@@ -11,8 +11,8 @@ const lightboxPair = ref<ImagePair | null>(null);
 // Sort categories by sort_order
 const sortedCategories = computed(() => {
   if (!categories.value) return [];
-  return [...categories.value].sort((a, b) => 
-    ((a as any).sort_order ?? 0) - ((b as any).sort_order ?? 0)
+  return [...categories.value].sort(
+    (a, b) => ((a as any).sort_order ?? 0) - ((b as any).sort_order ?? 0),
   );
 });
 

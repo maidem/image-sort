@@ -6,14 +6,14 @@ import { resolve } from "node:path";
 export default defineEventHandler(async (event) => {
   requireAdmin(event);
   const id = Number(getRouterParam(event, "id"));
-  const db = useDb();
-
-  const pairs = db
-    .prepare("SELECT original_filename, painted_filename FROM image_pairs WHERE category_id = ?")
-    .all(id) as { original_filename: string | null; painted_filename: string | null }[];
-
+  const sql = useDb();
   const cfg = useRuntimeConfig();
   const uploadPath = resolve(cfg.uploadPath as string);
+
+  const pairs = await sql`
+    SELECT original_filename, painted_filename FROM image_pairs WHERE category_id = ${id}
+  `;
+
   for (const pair of pairs) {
     for (const fn of [pair.original_filename, pair.painted_filename]) {
       if (fn) {
@@ -23,6 +23,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  db.prepare("DELETE FROM categories WHERE id = ?").run(id);
+  await sql`DELETE FROM categories WHERE id = ${id}`;
   return { ok: true };
 });
