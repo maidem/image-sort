@@ -21,7 +21,8 @@ RUN addgroup -S app && adduser -S app -G app
 
 ENV NODE_ENV=production \
     NITRO_PORT=3000 \
-    NITRO_HOST=0.0.0.0
+    NITRO_HOST=0.0.0.0 \
+    NUXT_UPLOAD_PATH=/data/uploads
 
 COPY --from=build /app/.output ./.output
 
