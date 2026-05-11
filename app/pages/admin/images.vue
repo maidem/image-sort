@@ -220,6 +220,17 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
   };
   input.click();
 }
+
+// ─── Zoom overlay ─────────────────────────────────────────────────────────────
+const zoomOverlayOpen = ref(false);
+const zoomOverlaySrc = ref("");
+const zoomOverlayAlt = ref("");
+
+function openZoom(src: string, alt: string) {
+  zoomOverlaySrc.value = src;
+  zoomOverlayAlt.value = alt;
+  zoomOverlayOpen.value = true;
+}
 </script>
 
 <template>
@@ -467,7 +478,7 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
             Original (links)
           </p>
           <div
-            class="rounded-xl overflow-hidden transition-colors"
+            class="relative rounded-xl overflow-hidden transition-colors group/img"
             :class="
               dragOverPairOriginal
                 ? 'ring-2 ring-pink-400 bg-pink-50'
@@ -491,6 +502,29 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
               <span class="text-2xl">🖼️</span>
               <span class="text-xs">Bild hierher ziehen</span>
             </div>
+            <!-- Magnifier button (only when image exists) -->
+            <button
+              v-if="selectedPair.original_filename"
+              class="absolute top-2 left-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 group-hover/img:opacity-100 hover:bg-black/65 transition-all duration-150"
+              title="Vergrößern"
+              @click.stop="
+                openZoom(
+                  `/api/uploads/${selectedPair.original_filename}`,
+                  'Original',
+                )
+              "
+            >
+              <svg
+                viewBox="0 0 24 24"
+                class="w-5 h-5 fill-current"
+                aria-hidden="true"
+              >
+                <path
+                  d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                />
+                <path d="M10 7v2H8v1h2v2h1v-2h2V9h-2V7z" />
+              </svg>
+            </button>
           </div>
           <div
             v-if="selectedPair.original_filename"
@@ -590,6 +624,14 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
     </template>
 
     <!-- ── CROPPER MODAL ───────────────────────────────────────────────────── -->
+    <!-- Zoom overlay -->
+    <ImageZoomOverlay
+      v-if="zoomOverlayOpen"
+      :src="zoomOverlaySrc"
+      :alt="zoomOverlayAlt"
+      @close="zoomOverlayOpen = false"
+    />
+
     <ImageCropper
       v-model="cropperOpen"
       :image-url="cropperImageUrl"
