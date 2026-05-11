@@ -52,36 +52,14 @@ function goBackToOverview() {
 // ─── Upload form ─────────────────────────────────────────────────────────────
 const showUpload = ref(false);
 const uploadCategoryId = ref<number | null>(null);
-const uploadOriginal = ref<File | null>(null);
-const uploadPainted = ref<File | null>(null);
-const uploadDescription = ref("");
-const uploadPaintedAt = ref("");
 const uploading = ref(false);
 const uploadError = ref("");
-
-const uploadOriginalUrl = computed(() =>
-  uploadOriginal.value ? URL.createObjectURL(uploadOriginal.value) : null,
-);
-const uploadPaintedUrl = computed(() =>
-  uploadPainted.value ? URL.createObjectURL(uploadPainted.value) : null,
-);
 
 // ─── Cropper ─────────────────────────────────────────────────────────────────
 const cropperOpen = ref(false);
 const cropperImageUrl = ref<string | null>(null);
 const cropperMode = ref<"original" | "painted" | null>(null);
 const cropperPairId = ref<number | null>(null);
-
-function openCropper(file: File, mode: "original" | "painted") {
-  cropperPairId.value = null;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    cropperImageUrl.value = ev.target?.result as string;
-    cropperMode.value = mode;
-    cropperOpen.value = true;
-  };
-  reader.readAsDataURL(file);
-}
 
 function openCropperForPair(pair: ImagePair, slot: "original" | "painted") {
   const filename =
@@ -95,12 +73,12 @@ function openCropperForPair(pair: ImagePair, slot: "original" | "painted") {
 
 function onOriginal(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
-  if (file) uploadOriginal.value = file;
+  if (file) uploadFile(file, "original");
 }
 
 function onPainted(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
-  if (file) uploadPainted.value = file;
+  if (file) uploadFile(file, "painted");
 }
 
 // ─── Drag & drop helpers ─────────────────────────────────────────────────────
@@ -115,8 +93,7 @@ function onDropUpload(e: DragEvent, slot: "original" | "painted") {
   dragOverPainted.value = false;
   const file = e.dataTransfer?.files?.[0];
   if (!file || !file.type.startsWith("image/")) return;
-  if (slot === "original") uploadOriginal.value = file;
-  else uploadPainted.value = file;
+  uploadFile(file, slot);
 }
 
 async function onDropPair(e: DragEvent, slot: "original" | "painted") {
@@ -136,26 +113,17 @@ async function onDropPair(e: DragEvent, slot: "original" | "painted") {
 }
 
 async function onCropperDone(blob: Blob) {
+  if (cropperPairId.value === null) return;
   const file = new File([blob], `${cropperMode.value}-${Date.now()}.png`, {
     type: "image/png",
   });
-
-  if (cropperPairId.value !== null) {
-    const fd = new FormData();
-    fd.append(cropperMode.value!, file);
-    await $fetch(
-      `/api/image-pairs/${cropperPairId.value}/${cropperMode.value}`,
-      {
-        method: "POST",
-        body: fd,
-      },
-    );
-    await refresh();
-  } else {
-    if (cropperMode.value === "original") uploadOriginal.value = file;
-    else if (cropperMode.value === "painted") uploadPainted.value = file;
-  }
-
+  const fd = new FormData();
+  fd.append(cropperMode.value!, file);
+  await $fetch(`/api/image-pairs/${cropperPairId.value}/${cropperMode.value}`, {
+    method: "POST",
+    body: fd,
+  });
+  await refresh();
   cropperOpen.value = false;
   cropperImageUrl.value = null;
   cropperMode.value = null;
@@ -163,27 +131,15 @@ async function onCropperDone(blob: Blob) {
 }
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
-async function doUpload() {
-  if (!uploadCategoryId.value) {
-    uploadError.value = "Bitte Kategorie wählen";
-    return;
-  }
+async function uploadFile(file: File, slot: "original" | "painted") {
+  if (uploading.value || !uploadCategoryId.value) return;
   uploading.value = true;
   uploadError.value = "";
   try {
     const fd = new FormData();
     fd.append("category_id", String(uploadCategoryId.value));
-    if (uploadOriginal.value) fd.append("original", uploadOriginal.value);
-    if (uploadPainted.value) fd.append("painted", uploadPainted.value);
-    if (uploadDescription.value.trim())
-      fd.append("description", uploadDescription.value.trim());
-    if (uploadPaintedAt.value) fd.append("painted_at", uploadPaintedAt.value);
+    fd.append(slot, file);
     await $fetch("/api/image-pairs", { method: "POST", body: fd });
-    showUpload.value = false;
-    uploadOriginal.value = null;
-    uploadPainted.value = null;
-    uploadDescription.value = "";
-    uploadPaintedAt.value = "";
     await refresh();
   } catch (e: any) {
     uploadError.value = e?.data?.statusMessage || "Upload fehlgeschlagen";
@@ -340,133 +296,65 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
       </div>
 
       <!-- Upload-Formular -->
-      <div v-if="showUpload" class="card space-y-4">
-        <h2 class="font-medium">Neues Bildpaar</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="label">Kategorie *</label>
-            <select v-model="uploadCategoryId" class="select">
-              <option :value="null" disabled>Wählen…</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="label">Gemalt am</label>
-            <input v-model="uploadPaintedAt" type="date" class="input" />
-          </div>
-          <div>
-            <label class="label">Original-Foto (links)</label>
-            <div v-if="uploadOriginal" class="space-y-2">
-              <div class="aspect-square bg-ink-100 rounded-lg overflow-hidden">
-                <img
-                  :src="uploadOriginalUrl!"
-                  class="w-full h-full object-contain"
-                  alt="Vorschau"
-                />
-              </div>
-              <div class="flex gap-1.5">
-                <button
-                  type="button"
-                  class="btn-ghost text-xs flex-1"
-                  @click="openCropper(uploadOriginal!, 'original')"
-                >
-                  ✏️ Zuschneiden
-                </button>
-                <button
-                  type="button"
-                  class="btn-danger text-xs flex-1"
-                  @click="uploadOriginal = null"
-                >
-                  Entfernen
-                </button>
-              </div>
-            </div>
-            <label
-              v-else
-              class="flex flex-col items-center justify-center gap-2 aspect-square rounded-xl border-2 border-dashed cursor-pointer transition-colors"
-              :class="
-                dragOverOriginal
-                  ? 'border-pink-400 bg-pink-50'
+      <div v-if="showUpload" class="card space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <label
+            class="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors"
+            style="aspect-ratio: 3/4"
+            :class="
+              dragOverOriginal
+                ? 'border-pink-400 bg-pink-50'
+                : uploading
+                  ? 'border-ink-200 bg-ink-50 opacity-50 pointer-events-none'
                   : 'border-ink-200 bg-ink-50 hover:border-pink-300'
-              "
-              @dragover.prevent="dragOverOriginal = true"
-              @dragleave="dragOverOriginal = false"
-              @drop="onDropUpload($event, 'original')"
+            "
+            @dragover.prevent="dragOverOriginal = true"
+            @dragleave="dragOverOriginal = false"
+            @drop="onDropUpload($event, 'original')"
+          >
+            <span class="text-3xl">🖼️</span>
+            <span class="text-xs text-ink-500 font-medium">Original</span>
+            <span class="text-xs text-ink-400 text-center px-3"
+              >Ziehen oder klicken</span
             >
-              <span class="text-2xl">🖼️</span>
-              <span class="text-xs text-ink-400 text-center px-2"
-                >Ziehen oder klicken</span
-              >
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="onOriginal"
-              />
-            </label>
-          </div>
-          <div>
-            <label class="label">Gemälde-Foto (rechts)</label>
-            <div v-if="uploadPainted" class="space-y-2">
-              <div class="aspect-square bg-ink-100 rounded-lg overflow-hidden">
-                <img
-                  :src="uploadPaintedUrl!"
-                  class="w-full h-full object-contain"
-                  alt="Vorschau"
-                />
-              </div>
-              <div class="flex gap-1.5">
-                <button
-                  type="button"
-                  class="btn-ghost text-xs flex-1"
-                  @click="openCropper(uploadPainted!, 'painted')"
-                >
-                  ✏️ Zuschneiden
-                </button>
-                <button
-                  type="button"
-                  class="btn-danger text-xs flex-1"
-                  @click="uploadPainted = null"
-                >
-                  Entfernen
-                </button>
-              </div>
-            </div>
-            <label
-              v-else
-              class="flex flex-col items-center justify-center gap-2 aspect-square rounded-xl border-2 border-dashed cursor-pointer transition-colors"
-              :class="
-                dragOverPainted
-                  ? 'border-pink-400 bg-pink-50'
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onOriginal"
+            />
+          </label>
+          <label
+            class="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors"
+            style="aspect-ratio: 3/4"
+            :class="
+              dragOverPainted
+                ? 'border-pink-400 bg-pink-50'
+                : uploading
+                  ? 'border-ink-200 bg-ink-50 opacity-50 pointer-events-none'
                   : 'border-ink-200 bg-ink-50 hover:border-pink-300'
-              "
-              @dragover.prevent="dragOverPainted = true"
-              @dragleave="dragOverPainted = false"
-              @drop="onDropUpload($event, 'painted')"
+            "
+            @dragover.prevent="dragOverPainted = true"
+            @dragleave="dragOverPainted = false"
+            @drop="onDropUpload($event, 'painted')"
+          >
+            <span class="text-3xl">🎨</span>
+            <span class="text-xs text-ink-500 font-medium">Gemälde</span>
+            <span class="text-xs text-ink-400 text-center px-3"
+              >Ziehen oder klicken</span
             >
-              <span class="text-2xl">🖼️</span>
-              <span class="text-xs text-ink-400 text-center px-2"
-                >Ziehen oder klicken</span
-              >
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="onPainted"
-              />
-            </label>
-          </div>
-          <div class="sm:col-span-2">
-            <label class="label">Bildbeschreibung</label>
-            <textarea v-model="uploadDescription" class="textarea" rows="2" />
-          </div>
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onPainted"
+            />
+          </label>
         </div>
+        <p v-if="uploading" class="text-xs text-ink-400 text-center">
+          Wird hochgeladen…
+        </p>
         <p v-if="uploadError" class="text-sm text-red-600">{{ uploadError }}</p>
-        <button class="btn-lime" :disabled="uploading" @click="doUpload">
-          {{ uploading ? "Wird hochgeladen…" : "Hochladen" }}
-        </button>
       </div>
 
       <!-- Kachel-Raster -->
