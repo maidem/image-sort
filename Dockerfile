@@ -17,7 +17,7 @@ RUN npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app && apk add --no-cache su-exec
 
 ENV NODE_ENV=production \
     NITRO_PORT=3000 \
@@ -28,11 +28,15 @@ COPY --from=build /app/.output ./.output
 
 RUN mkdir -p /data/uploads && chown -R app:app /data
 
+COPY --from=build /app/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 VOLUME ["/data/uploads"]
 EXPOSE 3000
-USER app
+# Run as root so entrypoint can fix permissions, then drops to app
+USER root
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD wget -qO- http://127.0.0.1:3000/api/categories > /dev/null || exit 1
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["/docker-entrypoint.sh"]
