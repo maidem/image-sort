@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Category } from "~/../../types/models";
+import Sortable from "sortablejs";
 
 definePageMeta({ middleware: "admin" });
 
@@ -11,6 +12,43 @@ const name = ref("");
 const description = ref("");
 const saving = ref(false);
 const error = ref("");
+
+const sortableList = ref<HTMLElement | null>(null);
+
+// Initialize Sortable
+onMounted(() => {
+  if (sortableList.value) {
+    Sortable.create(sortableList.value, {
+      animation: 150,
+      ghostClass: "opacity-50",
+      onEnd: async (evt) => {
+        if (!categories.value) return;
+        
+        // Reorder array based on drag result
+        const movedItem = categories.value[evt.oldIndex!];
+        categories.value.splice(evt.oldIndex!, 1);
+        categories.value.splice(evt.newIndex!, 0, movedItem);
+        
+        // Update sort_order based on new positions
+        const reorderData = categories.value.map((cat, idx) => ({
+          id: cat.id,
+          sort_order: idx,
+        }));
+        
+        // Send to server
+        try {
+          await $fetch("/api/categories/reorder", {
+            method: "POST",
+            body: reorderData,
+          });
+        } catch (e: any) {
+          error.value = e?.data?.statusMessage || "Fehler beim Speichern der Reihenfolge";
+          await refresh(); // Refresh to revert
+        }
+      },
+    });
+  }
+});
 
 function openCreate() {
   editTarget.value = null;
@@ -88,13 +126,13 @@ async function remove(cat: Category) {
     </div>
 
     <!-- List -->
-    <div v-if="categories?.length" class="space-y-2">
+    <div v-if="categories?.length" ref="sortableList" class="space-y-2">
       <div
         v-for="cat in categories"
         :key="cat.id"
-        class="card flex items-center justify-between gap-4"
+        class="card flex items-center justify-between gap-4 cursor-move hover:shadow-md transition"
       >
-        <div>
+        <div class="flex-1">
           <p class="font-medium">{{ cat.name }}</p>
           <p v-if="cat.description" class="text-sm text-ink-500">{{ cat.description }}</p>
           <p class="text-xs text-ink-400 mt-0.5">{{ (cat as any).image_count }} Bildpaare</p>

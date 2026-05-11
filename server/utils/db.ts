@@ -28,6 +28,7 @@ function migrate(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       description TEXT,
+      sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -43,4 +44,11 @@ function migrate(db: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_image_pairs_category ON image_pairs(category_id);
   `);
+  
+  // Add sort_order column if it doesn't exist
+  try {
+    db.prepare("ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0").run();
+  } catch {
+    // Column already exists
+  }
 }

@@ -8,6 +8,14 @@ const { data: allPairs } = await useFetch<ImagePair[]>("/api/image-pairs");
 const selectedCategory = ref<number | null>(null);
 const lightboxPair = ref<ImagePair | null>(null);
 
+// Sort categories by sort_order
+const sortedCategories = computed(() => {
+  if (!categories.value) return [];
+  return [...categories.value].sort((a, b) => 
+    ((a as any).sort_order ?? 0) - ((b as any).sort_order ?? 0)
+  );
+});
+
 const visiblePairs = computed(() => {
   if (!allPairs.value) return [];
   const pairs =
@@ -38,7 +46,7 @@ function closeLightbox() {
         Alle
       </button>
       <button
-        v-for="c in categories"
+        v-for="c in sortedCategories"
         :key="c.id"
         class="btn"
         :class="selectedCategory === c.id ? 'btn-primary' : 'btn-ghost'"

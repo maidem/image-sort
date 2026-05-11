@@ -8,7 +8,7 @@ export default defineEventHandler(() => {
        FROM categories c
        LEFT JOIN image_pairs ip ON ip.category_id = c.id
        GROUP BY c.id
-       ORDER BY c.name ASC`,
+       ORDER BY c.sort_order ASC, c.id ASC`,
     )
     .all();
 });
