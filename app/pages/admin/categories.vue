@@ -21,6 +21,7 @@ onMounted(() => {
     Sortable.create(sortableList.value, {
       animation: 150,
       ghostClass: "opacity-50",
+      handle: ".drag-handle",
       onEnd: async (evt) => {
         if (!categories.value) return;
         
@@ -130,13 +131,21 @@ async function remove(cat: Category) {
       <div
         v-for="cat in categories"
         :key="cat.id"
-        class="card flex items-center justify-between gap-4 cursor-move hover:shadow-md transition"
+        class="card flex items-center justify-between gap-4 hover:shadow-md transition"
       >
+        <!-- Drag Handle -->
+        <div class="drag-handle flex items-center justify-center px-3 py-2 cursor-grab active:cursor-grabbing text-ink-300 hover:text-ink-600 transition flex-shrink-0">
+          <span class="text-lg leading-none">⋮⋮</span>
+        </div>
+        
+        <!-- Content -->
         <div class="flex-1">
           <p class="font-medium">{{ cat.name }}</p>
           <p v-if="cat.description" class="text-sm text-ink-500">{{ cat.description }}</p>
           <p class="text-xs text-ink-400 mt-0.5">{{ (cat as any).image_count }} Bildpaare</p>
         </div>
+        
+        <!-- Actions -->
         <div class="flex gap-2 shrink-0">
           <button class="btn-ghost !px-3 !py-1.5 text-xs" @click="openEdit(cat)">Bearbeiten</button>
           <button class="btn-danger !px-3 !py-1.5 text-xs" @click="remove(cat)">Löschen</button>
