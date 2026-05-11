@@ -9,8 +9,13 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export default defineEventHandler(async (event) => {
   requireAdmin(event);
   const cfg = useRuntimeConfig();
-  const uploadPath = resolve(cfg.uploadPath as string);
-  mkdirSync(uploadPath, { recursive: true });
+  const uploadPath = resolve((cfg.uploadPath as string) || "/data/uploads");
+  console.log("[upload] uploadPath resolved to:", uploadPath);
+  try {
+    mkdirSync(uploadPath, { recursive: true });
+  } catch (e: any) {
+    throw createError({ statusCode: 500, statusMessage: `mkdir failed: ${e.message}` });
+  }
 
   const parts = await readMultipartFormData(event);
   if (!parts) {
@@ -37,7 +42,11 @@ export default defineEventHandler(async (event) => {
     }
     const ext = extname(part.filename || `.${mime.split("/")[1]}`);
     const filename = `${randomUUID()}${ext}`;
-    writeFileSync(resolve(uploadPath, filename), part.data);
+    try {
+      writeFileSync(resolve(uploadPath, filename), part.data);
+    } catch (e: any) {
+      throw createError({ statusCode: 500, statusMessage: `writeFile failed: ${e.message} (path: ${uploadPath})` });
+    }
     return filename;
   }
 
@@ -45,11 +54,16 @@ export default defineEventHandler(async (event) => {
   const painted_filename = saveFile("painted");
 
   const sql = useDb();
-  const [pair] = await sql`
-    INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at)
-    VALUES (${category_id}, ${original_filename}, ${painted_filename}, ${description}, ${painted_at})
-    RETURNING id
-  `;
+  let pair: any;
+  try {
+    [pair] = await sql`
+      INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at)
+      VALUES (${category_id}, ${original_filename}, ${painted_filename}, ${description}, ${painted_at})
+      RETURNING id
+    `;
+  } catch (e: any) {
+    throw createError({ statusCode: 500, statusMessage: `DB insert failed: ${e.message}` });
+  }
 
   const [result] = await sql`
     SELECT ip.*, c.name AS category_name
