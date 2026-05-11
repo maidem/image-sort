@@ -125,11 +125,11 @@ async function remove(cat: Category) {
       </h2>
       <div>
         <label class="label">Name</label>
-        <input v-model="name" class="input" type="text" autofocus />
+        <input v-model="name" class="input" type="text" autofocus @keyup.enter="save" />
       </div>
       <div>
         <label class="label">Beschreibung (optional)</label>
-        <input v-model="description" class="input" type="text" />
+        <input v-model="description" class="input" type="text" @keyup.enter="save" />
       </div>
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       <div class="flex gap-2">
