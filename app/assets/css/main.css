@@ -20,10 +20,10 @@
   --color-ink-900: #18181b;
   --color-ink-950: #09090b;
 
-  --color-lime-soft: #ecfccb;
-  --color-lime-bright: #bef264;
-  --color-lime-vivid: #a3e635;
-  --color-lime-deep: #65a30d;
+  --color-pink-soft: #fce7f3;
+  --color-pink-bright: #f472b6;
+  --color-pink-vivid: #ec4899;
+  --color-pink-deep: #be185d;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
@@ -42,7 +42,7 @@ body,
 /* Subtle premium texture */
 body {
   background-image:
-    radial-gradient(circle at 0% 0%, rgba(163, 230, 53, 0.06), transparent 40%),
+    radial-gradient(circle at 0% 0%, rgba(236, 72, 153, 0.06), transparent 40%),
     radial-gradient(
       circle at 100% 100%,
       rgba(24, 24, 27, 0.04),
@@ -60,10 +60,10 @@ body {
     0 6px 20px -8px rgba(0, 0, 0, 0.35);
 }
 .btn-lime {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 bg-[color:var(--color-lime-vivid)] text-ink-950 hover:bg-[color:var(--color-lime-bright)] active:scale-[.98];
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 bg-[color:var(--color-pink-vivid)] text-white hover:bg-[color:var(--color-pink-bright)] active:scale-[.98];
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
-    0 8px 24px -10px rgba(101, 163, 13, 0.55);
+    0 8px 24px -10px rgba(236, 72, 153, 0.55);
 }
 .btn-ghost {
   @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 text-ink-700 hover:bg-ink-100;
@@ -82,7 +82,7 @@ body {
 .input,
 .select,
 .textarea {
-  @apply w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-[color:var(--color-lime-vivid)]/40;
+  @apply w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-[color:var(--color-pink-vivid)]/40;
 }
 
 .label {
@@ -112,10 +112,10 @@ body {
   }
 }
 .chip-lime {
-  @apply inline-flex items-center gap-1 rounded-full border border-[color:var(--color-lime-deep)]/30 bg-[color:var(--color-lime-soft)] px-2.5 py-1 text-xs text-[color:var(--color-lime-deep)];
+  @apply inline-flex items-center gap-1 rounded-full border border-[color:var(--color-pink-deep)]/30 bg-[color:var(--color-pink-soft)] px-2.5 py-1 text-xs text-[color:var(--color-pink-deep)];
 }
 .chip-label {
-  @apply inline-flex items-center gap-1 rounded-full border border-[color:var(--color-lime-deep)]/25 bg-[color:var(--color-lime-soft)] px-2.5 py-1 text-xs font-medium text-[color:var(--color-lime-deep)];
+  @apply inline-flex items-center gap-1 rounded-full border border-[color:var(--color-pink-deep)]/25 bg-[color:var(--color-pink-soft)] px-2.5 py-1 text-xs font-medium text-[color:var(--color-pink-deep)];
 }
 
 .divider {

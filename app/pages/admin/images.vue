@@ -3,8 +3,10 @@ import type { Category, ImagePair } from "~/../../types/models";
 
 definePageMeta({ middleware: "admin" });
 
-const { data: categories } = await useFetch<(Category & { image_count: number })[]>("/api/categories");
-const { data: pairs, refresh } = await useFetch<ImagePair[]>("/api/image-pairs");
+const { data: categories } =
+  await useFetch<(Category & { image_count: number })[]>("/api/categories");
+const { data: pairs, refresh } =
+  await useFetch<ImagePair[]>("/api/image-pairs");
 
 const selectedCategory = ref<number | null>(null);
 
@@ -24,15 +26,62 @@ const uploadPaintedAt = ref("");
 const uploading = ref(false);
 const uploadError = ref("");
 
-function onOriginal(e: Event) {
-  uploadOriginal.value = (e.target as HTMLInputElement).files?.[0] ?? null;
+// Preview URLs
+const uploadOriginalUrl = computed(() =>
+  uploadOriginal.value ? URL.createObjectURL(uploadOriginal.value) : null,
+);
+const uploadPaintedUrl = computed(() =>
+  uploadPainted.value ? URL.createObjectURL(uploadPainted.value) : null,
+);
+
+// Cropper
+const cropperOpen = ref(false);
+const cropperImageUrl = ref<string | null>(null);
+const cropperMode = ref<"original" | "painted" | null>(null);
+
+function openCropper(file: File, mode: "original" | "painted") {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    cropperImageUrl.value = ev.target?.result as string;
+    cropperMode.value = mode;
+    cropperOpen.value = true;
+  };
+  reader.readAsDataURL(file);
 }
+
+function onOriginal(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (file) {
+    uploadOriginal.value = file;
+  }
+}
+
 function onPainted(e: Event) {
-  uploadPainted.value = (e.target as HTMLInputElement).files?.[0] ?? null;
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (file) {
+    uploadPainted.value = file;
+  }
+}
+
+function onCropperDone(blob: Blob) {
+  const file = new File([blob], `${cropperMode.value}-${Date.now()}.png`, {
+    type: "image/png",
+  });
+  if (cropperMode.value === "original") {
+    uploadOriginal.value = file;
+  } else if (cropperMode.value === "painted") {
+    uploadPainted.value = file;
+  }
+  cropperOpen.value = false;
+  cropperImageUrl.value = null;
+  cropperMode.value = null;
 }
 
 async function doUpload() {
-  if (!uploadCategoryId.value) { uploadError.value = "Bitte Kategorie wählen"; return; }
+  if (!uploadCategoryId.value) {
+    uploadError.value = "Bitte Kategorie wählen";
+    return;
+  }
   uploading.value = true;
   uploadError.value = "";
   try {
@@ -40,7 +89,8 @@ async function doUpload() {
     fd.append("category_id", String(uploadCategoryId.value));
     if (uploadOriginal.value) fd.append("original", uploadOriginal.value);
     if (uploadPainted.value) fd.append("painted", uploadPainted.value);
-    if (uploadDescription.value.trim()) fd.append("description", uploadDescription.value.trim());
+    if (uploadDescription.value.trim())
+      fd.append("description", uploadDescription.value.trim());
     if (uploadPaintedAt.value) fd.append("painted_at", uploadPaintedAt.value);
     await $fetch("/api/image-pairs", { method: "POST", body: fd });
     showUpload.value = false;
@@ -125,21 +175,90 @@ async function deletePainted(pair: ImagePair) {
           <label class="label">Kategorie *</label>
           <select v-model="uploadCategoryId" class="select">
             <option :value="null" disabled>Wählen…</option>
-            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">
+              {{ c.name }}
+            </option>
           </select>
         </div>
         <div>
           <label class="label">Gemalt am</label>
           <input v-model="uploadPaintedAt" type="date" class="input" />
         </div>
+
+        <!-- Original image with preview -->
         <div>
           <label class="label">Original-Foto (links)</label>
-          <input type="file" accept="image/*" class="input !py-1.5" @change="onOriginal" />
+          <div v-if="uploadOriginal" class="space-y-2">
+            <div class="aspect-square bg-ink-100 rounded-lg overflow-hidden">
+              <img
+                :src="uploadOriginalUrl"
+                class="w-full h-full object-cover"
+                alt="Vorschau"
+              />
+            </div>
+            <div class="flex gap-1.5">
+              <button
+                type="button"
+                class="btn-ghost text-xs flex-1"
+                @click="openCropper(uploadOriginal, 'original')"
+              >
+                ✏️ Zuschneiden
+              </button>
+              <button
+                type="button"
+                class="btn-danger text-xs flex-1"
+                @click="uploadOriginal = null"
+              >
+                Entfernen
+              </button>
+            </div>
+          </div>
+          <input
+            v-else
+            type="file"
+            accept="image/*"
+            class="input !py-1.5"
+            @change="onOriginal"
+          />
         </div>
+
+        <!-- Painted image with preview -->
         <div>
           <label class="label">Gemälde-Foto (rechts) *</label>
-          <input type="file" accept="image/*" class="input !py-1.5" @change="onPainted" />
+          <div v-if="uploadPainted" class="space-y-2">
+            <div class="aspect-square bg-ink-100 rounded-lg overflow-hidden">
+              <img
+                :src="uploadPaintedUrl"
+                class="w-full h-full object-cover"
+                alt="Vorschau"
+              />
+            </div>
+            <div class="flex gap-1.5">
+              <button
+                type="button"
+                class="btn-ghost text-xs flex-1"
+                @click="openCropper(uploadPainted, 'painted')"
+              >
+                ✏️ Zuschneiden
+              </button>
+              <button
+                type="button"
+                class="btn-danger text-xs flex-1"
+                @click="uploadPainted = null"
+              >
+                Entfernen
+              </button>
+            </div>
+          </div>
+          <input
+            v-else
+            type="file"
+            accept="image/*"
+            class="input !py-1.5"
+            @change="onPainted"
+          />
         </div>
+
         <div class="sm:col-span-2">
           <label class="label">Bildbeschreibung</label>
           <textarea v-model="uploadDescription" class="textarea" rows="3" />
@@ -151,30 +270,51 @@ async function deletePainted(pair: ImagePair) {
       </button>
     </div>
 
+    <!-- Image Cropper Modal -->
+    <ImageCropper
+      v-model="cropperOpen"
+      :image-url="cropperImageUrl"
+      :title="
+        cropperMode === 'original'
+          ? 'Original zuschneiden'
+          : 'Gemälde zuschneiden'
+      "
+      @crop="onCropperDone"
+    />
+
     <!-- Category filter -->
     <div class="flex flex-wrap gap-2">
       <button
         class="btn"
         :class="selectedCategory === null ? 'btn-primary' : 'btn-ghost'"
         @click="selectedCategory = null"
-      >Alle</button>
+      >
+        Alle
+      </button>
       <button
         v-for="c in categories"
         :key="c.id"
         class="btn"
         :class="selectedCategory === c.id ? 'btn-primary' : 'btn-ghost'"
         @click="selectedCategory = c.id"
-      >{{ c.name }}</button>
+      >
+        {{ c.name }}
+      </button>
     </div>
 
     <!-- Edit modal -->
-    <div v-if="editPair" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div
+      v-if="editPair"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
       <div class="card w-full max-w-md space-y-4">
         <h2 class="font-medium">Bildpaar bearbeiten</h2>
         <div>
           <label class="label">Kategorie</label>
           <select v-model="editCategoryId" class="select">
-            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">
+              {{ c.name }}
+            </option>
           </select>
         </div>
         <div>
@@ -196,21 +336,31 @@ async function deletePainted(pair: ImagePair) {
 
     <!-- Pairs grid -->
     <div v-if="filteredPairs.length" class="space-y-4">
-      <div
-        v-for="pair in filteredPairs"
-        :key="pair.id"
-        class="card space-y-3"
-      >
+      <div v-for="pair in filteredPairs" :key="pair.id" class="card space-y-3">
         <!-- Meta row -->
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div>
             <span class="chip text-xs">{{ pair.category_name }}</span>
-            <p v-if="pair.painted_at" class="text-xs text-ink-400 mt-1">Gemalt am: {{ pair.painted_at }}</p>
-            <p v-if="pair.description" class="text-sm text-ink-600 mt-1">{{ pair.description }}</p>
+            <p v-if="pair.painted_at" class="text-xs text-ink-400 mt-1">
+              Gemalt am: {{ pair.painted_at }}
+            </p>
+            <p v-if="pair.description" class="text-sm text-ink-600 mt-1">
+              {{ pair.description }}
+            </p>
           </div>
           <div class="flex gap-2 shrink-0">
-            <button class="btn-ghost !px-3 !py-1.5 text-xs" @click="openEdit(pair)">Bearbeiten</button>
-            <button class="btn-danger !px-3 !py-1.5 text-xs" @click="deletePair(pair)">Paar löschen</button>
+            <button
+              class="btn-ghost !px-3 !py-1.5 text-xs"
+              @click="openEdit(pair)"
+            >
+              Bearbeiten
+            </button>
+            <button
+              class="btn-danger !px-3 !py-1.5 text-xs"
+              @click="deletePair(pair)"
+            >
+              Paar löschen
+            </button>
           </div>
         </div>
 
@@ -218,15 +368,22 @@ async function deletePainted(pair: ImagePair) {
         <div class="grid grid-cols-2 gap-3">
           <!-- Original -->
           <div class="space-y-2">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-400">Original (links)</p>
-            <div class="relative aspect-square bg-ink-100 rounded-xl overflow-hidden">
+            <p class="text-xs font-medium uppercase tracking-wide text-ink-400">
+              Original (links)
+            </p>
+            <div
+              class="relative aspect-square bg-ink-100 rounded-xl overflow-hidden"
+            >
               <img
                 v-if="pair.original_filename"
                 :src="`/api/uploads/${pair.original_filename}`"
                 class="w-full h-full object-cover"
                 alt="Original"
               />
-              <div v-else class="flex items-center justify-center h-full text-ink-300 text-sm">
+              <div
+                v-else
+                class="flex items-center justify-center h-full text-ink-300 text-sm"
+              >
                 Kein Foto
               </div>
             </div>
@@ -234,20 +391,29 @@ async function deletePainted(pair: ImagePair) {
               v-if="pair.original_filename"
               class="btn-danger w-full !py-1.5 text-xs"
               @click="deleteOriginal(pair)"
-            >Original löschen</button>
+            >
+              Original löschen
+            </button>
           </div>
 
           <!-- Painted -->
           <div class="space-y-2">
-            <p class="text-xs font-medium uppercase tracking-wide text-ink-400">Gemälde (rechts)</p>
-            <div class="relative aspect-square bg-ink-100 rounded-xl overflow-hidden">
+            <p class="text-xs font-medium uppercase tracking-wide text-ink-400">
+              Gemälde (rechts)
+            </p>
+            <div
+              class="relative aspect-square bg-ink-100 rounded-xl overflow-hidden"
+            >
               <img
                 v-if="pair.painted_filename"
                 :src="`/api/uploads/${pair.painted_filename}`"
                 class="w-full h-full object-cover"
                 alt="Gemälde"
               />
-              <div v-else class="flex items-center justify-center h-full text-ink-300 text-sm">
+              <div
+                v-else
+                class="flex items-center justify-center h-full text-ink-300 text-sm"
+              >
                 Kein Foto
               </div>
             </div>
@@ -255,7 +421,9 @@ async function deletePainted(pair: ImagePair) {
               v-if="pair.painted_filename"
               class="btn-danger w-full !py-1.5 text-xs"
               @click="deletePainted(pair)"
-            >Gemälde löschen</button>
+            >
+              Gemälde löschen
+            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,118 @@
 # Image Sort
 
-Ein modernes Bildverwaltungs- und Sortiertool zum Organisieren und Kategorisieren von Bildern.
+Bildergalerie-App zum Verwalten und Präsentieren von Original- und Gemälde-Fotopaarungen. Der Admin lädt je ein Original-Foto (links) und ein gemaltes Foto (rechts) hoch — im Frontend wird nur das Gemälde in einer Galerie angezeigt, filterbar nach Kategorien.
+
+## Tech-Stack
+
+| Bereich            | Technologie                                             |
+| ------------------ | ------------------------------------------------------- |
+| Frontend & Backend | Nuxt 4 (Vue 3 + Nitro)                                  |
+| Datenbank          | SQLite via `better-sqlite3` (WAL-Modus, FK-Constraints) |
+| Styles             | Tailwind CSS v4                                         |
+| Auth               | Signierte Session-Cookies (HMAC-SHA256)                 |
+| Container          | Multi-Stage Dockerfile                                  |
+| Deployment         | Coolify                                                 |
+
+---
+
+## Funktionen
+
+### Admin-Bereich (Login erforderlich)
+
+- **Kategorien verwalten** — Kategorien anlegen, bearbeiten, löschen
+- **Bildpaare hochladen** — Je ein Original-Foto (links) und ein Gemälde (rechts) pro Paar
+- **Metadaten** — Bildbeschreibung und "Gemalt am"-Datum pro Bildpaar
+- **Einzelne Fotos löschen** — Original oder Gemälde unabhängig voneinander entfernen
+- **Bildpaar löschen** — Entfernt beide Fotos und den Eintrag
+
+### Frontend (kein Login)
+
+- **Galerie** — Zeigt ausschließlich die gemalten Fotos
+- **Kategorie-Filter** — Buttons oben zum Filtern nach Kategorien
+- **Lightbox** — Klick auf ein Bild öffnet es groß mit Beschreibung und Datum
+
+---
+
+## Datenmodell
+
+```
+categories     — Kategorien (name, description)
+  └── image_pairs — Bildpaare (original_filename, painted_filename, description, painted_at)
+```
+
+---
+
+## Lokal entwickeln
+
+**Voraussetzungen:** Node 22 (empfohlen via [Volta](https://volta.sh)), npm
+
+```bash
+npm install
+cp .env.example .env
+# Werte in .env anpassen (ADMIN_EMAIL, ADMIN_PASSWORD, SESSION_SECRET)
+npm run dev
+```
+
+App läuft unter http://localhost:3000  
+Admin-Login unter http://localhost:3000/login
+
+---
+
+## Umgebungsvariablen
+
+| Variable         | Standard         | Beschreibung                                          |
+| ---------------- | ---------------- | ----------------------------------------------------- |
+| `DATABASE_PATH`  | `./data/app.db`  | Pfad zur SQLite-Datei                                 |
+| `UPLOAD_PATH`    | `./data/uploads` | Verzeichnis für hochgeladene Bilder                   |
+| `ADMIN_EMAIL`    | _(leer)_         | Admin-Login-E-Mail                                    |
+| `ADMIN_PASSWORD` | _(leer)_         | Admin-Login-Passwort                                  |
+| `SESSION_SECRET` | _(leer)_         | HMAC-Geheimnis für Session-Cookies (mind. 32 Zeichen) |
+| `NODE_ENV`       | _(ungesetzt)_    | `production` in Docker — aktiviert Secure-Cookie-Flag |
+| `NITRO_PORT`     | `3000`           | Server-Port                                           |
+| `NITRO_HOST`     | `0.0.0.0`        | Bind-Adresse (Docker)                                 |
+
+---
+
+## Docker (lokal)
+
+```bash
+docker build -t image-sort .
+docker run --rm -p 3000:3000 \
+  -e ADMIN_EMAIL=admin@example.com \
+  -e ADMIN_PASSWORD=changeme \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -v $(pwd)/data:/data \
+  image-sort
+```
+
+---
+
+## Deployment auf Coolify
+
+1. Repository in Coolify als neue App hinzufügen
+2. Dockerfile-Build auswählen
+3. Volume `/data` persistent mounten
+4. Folgende Env-Vars setzen:
+
+```bash
+DATABASE_PATH=/data/app.db
+UPLOAD_PATH=/data/uploads
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=$(openssl rand -base64 18)
+SESSION_SECRET=$(openssl rand -hex 32)
+```
+
+5. GitHub Actions baut das Docker-Image automatisch bei Push auf `main` und pusht es nach GHCR.  
+   In Coolify den Webhook unter `COOLIFY_WEBHOOK_URL` als GitHub Secret hinterlegen.
+
+---
+
+## Sicherheit
+
+- **Admin-Auth:** HMAC-SHA256-signiertes Cookie, 12 h TTL, `httpOnly + sameSite=lax + secure` (Produktion)
+- **Datei-Uploads:** Nur `image/jpeg`, `image/png`, `image/webp`, `image/gif` erlaubt
+- **Path-Traversal-Schutz:** Dateinamen werden beim Serving bereinigt
+- **Schreibende Endpunkte** erfordern Admin-Session (401 sonst)
 
 ## Tech-Stack
 
