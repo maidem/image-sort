@@ -14,16 +14,25 @@ export default defineEventHandler(async (event) => {
   try {
     mkdirSync(uploadPath, { recursive: true });
   } catch (e: any) {
-    throw createError({ statusCode: 500, statusMessage: `mkdir failed: ${e.message}` });
+    throw createError({
+      statusCode: 500,
+      statusMessage: `mkdir failed: ${e.message}`,
+    });
   }
 
   const parts = await readMultipartFormData(event);
   if (!parts) {
-    throw createError({ statusCode: 400, statusMessage: "Keine Formulardaten" });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Keine Formulardaten",
+    });
   }
 
   const get = (name: string) =>
-    parts.find((p) => p.name === name)?.data?.toString("utf8").trim() ?? "";
+    parts
+      .find((p) => p.name === name)
+      ?.data?.toString("utf8")
+      .trim() ?? "";
 
   const category_id = Number(get("category_id"));
   if (!category_id) {
@@ -38,14 +47,20 @@ export default defineEventHandler(async (event) => {
     if (!part || !part.data?.length) return null;
     const mime = part.type || "application/octet-stream";
     if (!ALLOWED_TYPES.includes(mime)) {
-      throw createError({ statusCode: 400, statusMessage: `Ungültiger Dateityp: ${mime}` });
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Ungültiger Dateityp: ${mime}`,
+      });
     }
     const ext = extname(part.filename || `.${mime.split("/")[1]}`);
     const filename = `${randomUUID()}${ext}`;
     try {
       writeFileSync(resolve(uploadPath, filename), part.data);
     } catch (e: any) {
-      throw createError({ statusCode: 500, statusMessage: `writeFile failed: ${e.message} (path: ${uploadPath})` });
+      throw createError({
+        statusCode: 500,
+        statusMessage: `writeFile failed: ${e.message} (path: ${uploadPath})`,
+      });
     }
     return filename;
   }
@@ -62,7 +77,10 @@ export default defineEventHandler(async (event) => {
       RETURNING id
     `;
   } catch (e: any) {
-    throw createError({ statusCode: 500, statusMessage: `DB insert failed: ${e.message}` });
+    throw createError({
+      statusCode: 500,
+      statusMessage: `DB insert failed: ${e.message}`,
+    });
   }
 
   const [result] = await sql`

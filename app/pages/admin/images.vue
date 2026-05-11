@@ -13,7 +13,8 @@ const selectedCategoryId = ref<number | null>(null);
 const selectedPairId = ref<number | null>(null);
 
 const selectedCategory = computed(
-  () => categories.value?.find((c) => c.id === selectedCategoryId.value) ?? null,
+  () =>
+    categories.value?.find((c) => c.id === selectedCategoryId.value) ?? null,
 );
 const selectedPair = computed(
   () => pairs.value?.find((p) => p.id === selectedPairId.value) ?? null,
@@ -102,6 +103,38 @@ function onPainted(e: Event) {
   if (file) uploadPainted.value = file;
 }
 
+// ─── Drag & drop helpers ─────────────────────────────────────────────────────
+const dragOverOriginal = ref(false);
+const dragOverPainted = ref(false);
+const dragOverPairOriginal = ref(false);
+const dragOverPairPainted = ref(false);
+
+function onDropUpload(e: DragEvent, slot: "original" | "painted") {
+  e.preventDefault();
+  dragOverOriginal.value = false;
+  dragOverPainted.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
+  if (slot === "original") uploadOriginal.value = file;
+  else uploadPainted.value = file;
+}
+
+async function onDropPair(e: DragEvent, slot: "original" | "painted") {
+  e.preventDefault();
+  dragOverPairOriginal.value = false;
+  dragOverPairPainted.value = false;
+  if (!selectedPair.value) return;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
+  const fd = new FormData();
+  fd.append(slot, file);
+  await $fetch(`/api/image-pairs/${selectedPair.value.id}/${slot}`, {
+    method: "POST",
+    body: fd,
+  });
+  await refresh();
+}
+
 async function onCropperDone(blob: Blob) {
   const file = new File([blob], `${cropperMode.value}-${Date.now()}.png`, {
     type: "image/png",
@@ -110,10 +143,13 @@ async function onCropperDone(blob: Blob) {
   if (cropperPairId.value !== null) {
     const fd = new FormData();
     fd.append(cropperMode.value!, file);
-    await $fetch(`/api/image-pairs/${cropperPairId.value}/${cropperMode.value}`, {
-      method: "POST",
-      body: fd,
-    });
+    await $fetch(
+      `/api/image-pairs/${cropperPairId.value}/${cropperMode.value}`,
+      {
+        method: "POST",
+        body: fd,
+      },
+    );
     await refresh();
   } else {
     if (cropperMode.value === "original") uploadOriginal.value = file;
@@ -232,7 +268,6 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
 
 <template>
   <div class="max-w-5xl mx-auto space-y-6">
-
     <!-- ── ÜBERSICHT: Kategorien als Karten ────────────────────────────────── -->
     <template v-if="selectedCategoryId === null">
       <h1 class="text-2xl font-semibold tracking-tight">Bildpaare</h1>
@@ -248,7 +283,9 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
           @click="selectCategory(cat.id)"
         >
           <div class="flex items-start justify-between gap-2">
-            <h2 class="font-semibold text-base leading-tight">{{ cat.name }}</h2>
+            <h2 class="font-semibold text-base leading-tight">
+              {{ cat.name }}
+            </h2>
             <span class="chip text-xs shrink-0">
               {{ pairsForCategory(cat.id).length }} Paare
             </span>
@@ -288,7 +325,10 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
     <template v-else-if="selectedPairId === null">
       <!-- Header -->
       <div class="flex flex-wrap items-center gap-3">
-        <button class="btn-ghost !px-3 !py-1.5 text-sm" @click="goBackToOverview">
+        <button
+          class="btn-ghost !px-3 !py-1.5 text-sm"
+          @click="goBackToOverview"
+        >
           ← Übersicht
         </button>
         <h1 class="text-xl font-semibold tracking-tight flex-1">
@@ -343,13 +383,29 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
                 </button>
               </div>
             </div>
-            <input
+            <label
               v-else
-              type="file"
-              accept="image/*"
-              class="input !py-1.5"
-              @change="onOriginal"
-            />
+              class="flex flex-col items-center justify-center gap-2 aspect-square rounded-xl border-2 border-dashed cursor-pointer transition-colors"
+              :class="
+                dragOverOriginal
+                  ? 'border-pink-400 bg-pink-50'
+                  : 'border-ink-200 bg-ink-50 hover:border-pink-300'
+              "
+              @dragover.prevent="dragOverOriginal = true"
+              @dragleave="dragOverOriginal = false"
+              @drop="onDropUpload($event, 'original')"
+            >
+              <span class="text-2xl">🖼️</span>
+              <span class="text-xs text-ink-400 text-center px-2"
+                >Ziehen oder klicken</span
+              >
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onOriginal"
+              />
+            </label>
           </div>
           <div>
             <label class="label">Gemälde-Foto (rechts)</label>
@@ -378,13 +434,29 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
                 </button>
               </div>
             </div>
-            <input
+            <label
               v-else
-              type="file"
-              accept="image/*"
-              class="input !py-1.5"
-              @change="onPainted"
-            />
+              class="flex flex-col items-center justify-center gap-2 aspect-square rounded-xl border-2 border-dashed cursor-pointer transition-colors"
+              :class="
+                dragOverPainted
+                  ? 'border-pink-400 bg-pink-50'
+                  : 'border-ink-200 bg-ink-50 hover:border-pink-300'
+              "
+              @dragover.prevent="dragOverPainted = true"
+              @dragleave="dragOverPainted = false"
+              @drop="onDropUpload($event, 'painted')"
+            >
+              <span class="text-2xl">🖼️</span>
+              <span class="text-xs text-ink-400 text-center px-2"
+                >Ziehen oder klicken</span
+              >
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onPainted"
+              />
+            </label>
           </div>
           <div class="sm:col-span-2">
             <label class="label">Bildbeschreibung</label>
@@ -507,8 +579,16 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
             Original (links)
           </p>
           <div
-            class="bg-ink-100 rounded-xl overflow-hidden"
+            class="rounded-xl overflow-hidden transition-colors"
+            :class="
+              dragOverPairOriginal
+                ? 'ring-2 ring-pink-400 bg-pink-50'
+                : 'bg-ink-100'
+            "
             style="aspect-ratio: 4/3"
+            @dragover.prevent="dragOverPairOriginal = true"
+            @dragleave="dragOverPairOriginal = false"
+            @drop="onDropPair($event, 'original')"
           >
             <img
               v-if="selectedPair.original_filename"
@@ -518,9 +598,10 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
             />
             <div
               v-else
-              class="flex items-center justify-center h-full text-ink-300 text-sm"
+              class="flex flex-col items-center justify-center h-full text-ink-300 text-sm gap-1"
             >
-              Kein Foto
+              <span class="text-2xl">🖼️</span>
+              <span class="text-xs">Bild hierher ziehen</span>
             </div>
           </div>
           <div
@@ -561,8 +642,16 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
             Gemälde (rechts)
           </p>
           <div
-            class="bg-ink-100 rounded-xl overflow-hidden"
+            class="rounded-xl overflow-hidden transition-colors"
+            :class="
+              dragOverPairPainted
+                ? 'ring-2 ring-pink-400 bg-pink-50'
+                : 'bg-ink-100'
+            "
             style="aspect-ratio: 4/3"
+            @dragover.prevent="dragOverPairPainted = true"
+            @dragleave="dragOverPairPainted = false"
+            @drop="onDropPair($event, 'painted')"
           >
             <img
               v-if="selectedPair.painted_filename"
@@ -572,9 +661,10 @@ async function replaceImage(pair: ImagePair, slot: "original" | "painted") {
             />
             <div
               v-else
-              class="flex items-center justify-center h-full text-ink-300 text-sm"
+              class="flex flex-col items-center justify-center h-full text-ink-300 text-sm gap-1"
             >
-              Kein Foto
+              <span class="text-2xl">🖼️</span>
+              <span class="text-xs">Bild hierher ziehen</span>
             </div>
           </div>
           <div

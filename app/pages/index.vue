@@ -59,7 +59,7 @@ function closeLightbox() {
     <!-- Gallery grid -->
     <div
       v-if="visiblePairs.length"
-      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
+      class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2"
     >
       <div
         v-for="pair in visiblePairs"
@@ -67,11 +67,14 @@ function closeLightbox() {
         class="group cursor-pointer"
         @click="openLightbox(pair)"
       >
-        <div class="aspect-square bg-ink-100 rounded-2xl overflow-hidden">
+        <div
+          class="bg-ink-100 rounded-2xl overflow-hidden"
+          style="aspect-ratio: 3/4"
+        >
           <img
             :src="`/api/uploads/${pair.painted_filename}`"
             :alt="pair.description || 'Gemälde'"
-            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
           />
         </div>
         <div class="mt-2 px-1">
