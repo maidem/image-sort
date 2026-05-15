@@ -38,34 +38,38 @@ watch(
   { immediate: true },
 );
 
-watch(pairGrid, (el) => {
-  if (sortableInstance) {
-    sortableInstance.destroy();
-    sortableInstance = null;
-  }
-  if (!el) return;
-  sortableInstance = Sortable.create(el, {
-    animation: 150,
-    ghostClass: "opacity-40",
-    dragClass: "scale-105",
-    filter: ".no-drag",
-    onEnd: async (evt) => {
-      if (evt.oldIndex === evt.newIndex) return;
-      const items = [...localPairs.value];
-      const [moved] = items.splice(evt.oldIndex!, 1);
-      items.splice(evt.newIndex!, 0, moved);
-      localPairs.value = items;
-      try {
-        await $fetch("/api/image-pairs/reorder", {
-          method: "POST",
-          body: items.map((p, i) => ({ id: p.id, sort_order: i })),
-        });
-      } catch {
-        await refresh();
-      }
-    },
-  });
-});
+watchEffect(
+  () => {
+    const el = pairGrid.value;
+    if (sortableInstance) {
+      sortableInstance.destroy();
+      sortableInstance = null;
+    }
+    if (!el) return;
+    sortableInstance = Sortable.create(el, {
+      animation: 150,
+      ghostClass: "opacity-40",
+      dragClass: "scale-105",
+      filter: ".no-drag",
+      onEnd: async (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const items = [...localPairs.value];
+        const [moved] = items.splice(evt.oldIndex!, 1);
+        items.splice(evt.newIndex!, 0, moved);
+        localPairs.value = items;
+        try {
+          await $fetch("/api/image-pairs/reorder", {
+            method: "POST",
+            body: items.map((p, i) => ({ id: p.id, sort_order: i })),
+          });
+        } catch {
+          await refresh();
+        }
+      },
+    });
+  },
+  { flush: "post" },
+);
 
 function pairsForCategory(catId: number) {
   return pairs.value?.filter((p) => p.category_id === catId) ?? [];
