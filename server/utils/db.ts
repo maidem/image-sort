@@ -29,6 +29,11 @@ function buildSqliteClient(): SqlClient {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
+  // Migrate existing databases
+  try {
+    db.exec(`ALTER TABLE image_pairs ADD COLUMN sort_order INTEGER DEFAULT 0`);
+  } catch {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
       id   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +49,7 @@ function buildSqliteClient(): SqlClient {
       painted_filename TEXT,
       description TEXT,
       painted_at TEXT,
+      sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_image_pairs_category ON image_pairs(category_id);
@@ -121,9 +127,12 @@ export async function runMigrations(): Promise<void> {
       painted_filename TEXT,
       description TEXT,
       painted_at TEXT,
+      sort_order INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  await sql`ALTER TABLE image_pairs ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`;
 
   await sql`
     CREATE INDEX IF NOT EXISTS idx_image_pairs_category ON image_pairs(category_id)

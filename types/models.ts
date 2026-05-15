@@ -13,5 +13,6 @@ export interface ImagePair {
   painted_filename: string | null;
   description: string | null;
   painted_at: string | null;
+  sort_order: number;
   created_at: string;
 }

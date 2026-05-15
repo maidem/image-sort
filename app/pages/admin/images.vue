@@ -24,6 +24,56 @@ const categoryPairs = computed(() => {
   return pairs.value.filter((p) => p.category_id === selectedCategoryId.value);
 });
 
+// ─── Pair reorder (drag & drop) ──────────────────────────────────────────────
+const localPairs = ref<ImagePair[]>([]);
+const dragSourceIdx = ref<number | null>(null);
+const dragOverIdx = ref<number | null>(null);
+
+watch(
+  categoryPairs,
+  (p) => {
+    localPairs.value = [...p];
+  },
+  { immediate: true },
+);
+
+function onPairDragStart(e: DragEvent, idx: number) {
+  dragSourceIdx.value = idx;
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+}
+
+function onPairDragOver(e: DragEvent, idx: number) {
+  e.preventDefault();
+  dragOverIdx.value = idx;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+}
+
+function onPairDragLeave() {
+  dragOverIdx.value = null;
+}
+
+async function onPairDrop(e: DragEvent, idx: number) {
+  e.preventDefault();
+  dragOverIdx.value = null;
+  const src = dragSourceIdx.value;
+  dragSourceIdx.value = null;
+  if (src === null || src === idx) return;
+  const items = [...localPairs.value];
+  const [moved] = items.splice(src, 1);
+  items.splice(idx, 0, moved);
+  localPairs.value = items;
+  await $fetch("/api/image-pairs/reorder", {
+    method: "POST",
+    body: items.map((p, i) => ({ id: p.id, sort_order: i })),
+  });
+  await refresh();
+}
+
+function onPairDragEnd() {
+  dragSourceIdx.value = null;
+  dragOverIdx.value = null;
+}
+
 function pairsForCategory(catId: number) {
   return pairs.value?.filter((p) => p.category_id === catId) ?? [];
 }
@@ -370,14 +420,25 @@ function openZoom(src: string, alt: string) {
 
       <!-- Kachel-Raster -->
       <div
-        v-if="categoryPairs.length"
+        v-if="localPairs.length"
         class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
       >
         <div
-          v-for="pair in categoryPairs"
+          v-for="(pair, idx) in localPairs"
           :key="pair.id"
+          draggable="true"
           class="card !p-2 cursor-pointer hover:shadow-md hover:border-pink-300 transition-all space-y-2"
+          :class="{
+            'opacity-40': dragSourceIdx === idx,
+            'ring-2 ring-pink-400 scale-[1.02]':
+              dragOverIdx === idx && dragSourceIdx !== idx,
+          }"
           @click="selectPair(pair)"
+          @dragstart="onPairDragStart($event, idx)"
+          @dragover="onPairDragOver($event, idx)"
+          @dragleave="onPairDragLeave"
+          @drop="onPairDrop($event, idx)"
+          @dragend="onPairDragEnd"
         >
           <div class="grid grid-cols-2 gap-1">
             <div class="aspect-square bg-ink-100 rounded overflow-hidden">

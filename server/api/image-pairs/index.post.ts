@@ -69,11 +69,18 @@ export default defineEventHandler(async (event) => {
   const painted_filename = saveFile("painted");
 
   const sql = useDb();
+
+  // Determine sort_order: place new pair at the end of its category
+  const [maxRow] = await sql`
+    SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM image_pairs WHERE category_id = ${category_id}
+  `;
+  const sort_order = Number(maxRow?.max_order ?? -1) + 1;
+
   let pair: any;
   try {
     [pair] = await sql`
-      INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at)
-      VALUES (${category_id}, ${original_filename}, ${painted_filename}, ${description}, ${painted_at})
+      INSERT INTO image_pairs (category_id, original_filename, painted_filename, description, painted_at, sort_order)
+      VALUES (${category_id}, ${original_filename}, ${painted_filename}, ${description}, ${painted_at}, ${sort_order})
       RETURNING id
     `;
   } catch (e: any) {

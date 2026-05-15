@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
       FROM image_pairs ip
       LEFT JOIN categories c ON c.id = ip.category_id
       WHERE ip.category_id = ${Number(query.category_id)}
-      ORDER BY ip.created_at DESC
+      ORDER BY ip.sort_order ASC, ip.created_at ASC
     `;
   }
 
@@ -18,6 +18,6 @@ export default defineEventHandler(async (event) => {
     SELECT ip.*, c.name AS category_name
     FROM image_pairs ip
     LEFT JOIN categories c ON c.id = ip.category_id
-    ORDER BY ip.created_at DESC
+    ORDER BY ip.sort_order ASC, ip.created_at ASC
   `;
 });
